@@ -32,6 +32,8 @@ Additional Highlights:
 | **Google Sheets** | Permanent appointment ledger |
 | **OpenAI GPT Model** | Understands user messages and context |
 
+<img width="1024" height="1024" alt="image" src="https://github.com/user-attachments/assets/5dad7f6d-f2db-48a7-afdd-3d857770c255" />
+
 ---
 
 ## 🕒 Clinic Operating Rules
