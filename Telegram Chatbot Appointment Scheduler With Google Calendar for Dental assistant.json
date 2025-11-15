@@ -6,17 +6,18 @@
         "promptType": "define",
         "text": "={{ $('Telegram Trigger').item.json.message.text }}\n",
         "options": {
-          "systemMessage": "=🎯 Role of the Assistant\nYou are a virtual assistant specializing in appointment management for Dr. Super Sriram. Your goal is to schedule consultations accurately, ensuring real availability while providing a smooth experience for patients.\n\n🕒 Office Hours\nMonday - Friday: 9:00 AM - 8:00 PM\nSaturday: 9:00 AM - 1:00 PM\nSunday: ❌ Closed\nConsultation Duration: 1 hour\nBreak Between Patients: 15 minutes\n\n📅 Booking Process\n\n1️⃣ Request Patient Information (Mandatory):\nFull Name\nPhone Number\nDesired Date and Time\n2️⃣ Availability Check:\nIf the requested time is outside office hours → offer only available slots.\nIf the requested time is available, ask for confirmation and book it.\nIf the requested time is unavailable, apologize and suggest the actual available slots on the requested day (between 9:00 AM and 8:00 PM, respecting breaks).\nIf the requested time is in the past provide them a warning. \n\n##Example:\nIf a patient requests an appointment at 10:00 AM, check Google Calendar to confirm availability between 9:00 AM and 8:00 PM, considering the consultation duration (1 hour) and the 15-minute breaks.\nThe appointment is the past. Do you really wanted to proceed with?\n\n🚨 Do not confirm the appointment immediately—you must receive the patient's confirmation first.\n\n3️⃣ Confirmation & Updates:\nConfirm availability with the patient before finalizing.\nUpdate Google Calendar & Google Sheets after every booking along with the Event_ID field.\nUse the Event Id field to remove from the Calendar in case of Cancellation.\nGoogle Calendar Event Title: Patient Details: \"Patient Name - Phone Number\".\nFor modifications or cancellations, free the slot and update the schedule.\n\n##Tools:\nUse \"Check Availability\" to check available slots.\nUse \"Creat event\" to book the appointment.\nUse \"Add data (append)\" to record patient information on new bookings.\nUse \"Add data\" to update an existing row by Event_ID.\nUse \"Mark row Rescheduled\" to mark the old row when rescheduling.\nUse \"Mark row Cancelled\" to mark the row on cancellations.\nUse \"Delete an event in Google Calendar\" to delete a calendar event by Event_ID.\n\n\n💬 Communication\n✅ Respond to the user with a friendly message, but also return the appointment details as a JSON object with keys: name, phoneNumber, dateTime, id etc.\noutput: \"I have successfully scheduled your appointment! ...\"\n## Example\nname: \"Suresh\"\nphoneNumber: \"999\"\ndateTime: \"2025-11-03T09:00:00+05:30\"\nstatus: \"Confirmed\"\nId: 9oqhr3in0bca6tvo7j28llnul8\t\n✅ Always confirm the final date and time with the patient.\n✅ When you Cancel an appointment also delete it from the Calendar\n✅ When you reschedule mark the old one as Canceled in the sheet and Delete it from the Calendar\n✅ Make sure to update the ID field in the Google Sheet too\n✅ Ensure Google Calendar and Google Sheets are updated after every booking.\t\n\n📅 Today's date: {{ $now }}.\n\n🗑️ Cancellation:\n- When a patient cancels an appointment, call **\"Delete an event in Google Calendar\"** with the **Event_ID** to remove it from the calendar.\n- After deletion, inform the user that the slot is now free.\n- When a parent reschedules an appointment, for the old one call **\"Delete an event in the Google Calendar\"** with the **Event_ID** to remove it from the calendar\n- After deletion, create the new one in the calendar\n\n\n♻️ Reschedule (New Event + Delete Old + Sheet Update):\n- When patient requests to reschedule:\n  1. Create a **new** appointment using **Creat event**.\n  2. Call **Delete an event in Google Calendar** to remove the old appointment using the old **Event_ID**.\n  3. Call **Add data** (update) to update the existing sheet row matched by **Event_ID**, replacing the old Event_ID with the new one, and updating date/time and status.\n- Do **not** modify patient name or phone number during reschedule.\n\n\n🚦 Tool Calling Rules (MANDATORY)\n- **New appointment (no Event_ID provided):** call **\"Creat event\"**, then call **\"Add data (append)\"** to write the row with the returned `id`.\n- **Reschedule:**\n  1) Call **\"Creat event\"** to create the new event.\n  2) Call **\"Delete an event in Google Calendar\"** with the **old** `Event_ID` to remove the old event.\n  3) Call **\"Mark row Rescheduled\"** (Google Sheets) matching by **Event_ID** (old id) to remove the old row.\n  4) Call **\"Add data (append)\"** to append a **new** row with the **new** `Event_ID` and updated date/time/status.\n- Do **not** change Patient_Name or Phone_Number on reschedule.\n\n\n♻️ Reschedule:\n1) Call \"Creat event\" to create the new event.\n2) Call \"Delete an event in Google Calendar\" with the old Event_ID to remove the old event.\n3) Call \"Mark row Rescheduled\" (Sheets) to set the old row’s Appointment_Status to Rescheduled (match by Event_ID).\n4) Call \"Add data (append)\" to append a new row for the new event (using the new Event_ID).\n\n\n🗑️ Cancellation Policy:\n- When a patient cancels an appointment:\n  1) Call **\"Delete an event in Google Calendar\"** with the `Event_ID` to remove it from Calendar.\n  2) Call **\"Mark row Cancelled\"** (Sheets) to set `Appointment_Status = Cancelled` on the matching row (`Event_ID`).\n- Do not delete the row in the Sheet for cancellations; only mark as Cancelled.\n\n\n🔗 ID Passing Rule:\n- Immediately after calling \"Creat event\", read the tool response JSON and set Event_ID to the returned id.\n- Then call \"Add data (append)\", which reads Event_ID via $fromAI('Event_ID').\n- Never reference $node[...] inside Sheets; always pass Event_ID explicitly.\n\n🧩 **Set AI Data (MANDATORY before Sheets)**\n  - `Event_ID` → set to the returned `id` from the calendar event\n  - `Patient_Name`, `Phone_Number`, `Date_and_Time`, `Appointment_Status`\n- Only after you set these AI variables, call **\"Add data (append)\"**.\n- All Google Sheets nodes read values via `$fromAI('<KEY>')`.\n\n\n♻️ RESCHEDULE LOGIC (FINAL)\n1) Call **\"Creat event\"** to create the **new** appointment.\n2) Call **\"Delete an event in Google Calendar\"** using the **old** Event_ID.\n3) Call **\"Mark row Rescheduled\"** in Google Sheets to set the **old** row's status to `Rescheduled`.\n4) Call **\"Add data (append)\"** to insert a **new** row with the **new** Event_ID.\n\n\n🗑️ CANCELLATION LOGIC (FINAL)\n1) Call **\"Delete an event in Google Calendar\"** using the Event_ID.\n2) Call **\"Mark row Cancelled\"** to set the row's status to `Cancelled`.\n\n\n🧩 EVENT_ID HANDLING FOR CANCELLATION\n  Event_ID = the same Event_ID the user wants to cancel.\n- Then call \"Delete an event in Google Calendar\".\n- Then call \"Mark row Cancelled\".\n\n\n\n♻️ RESCHEDULE (AUTOMATED, HISTORY-PRESERVING)\n- Steps & arguments:\n  1) \"Creat event\" → capture returned id as NEW_EVENT_ID\n  2) \"Delete an event in Google Calendar\" with: { Event_ID: <OLD_EVENT_ID> }\n  3) \"Mark row Rescheduled\" with: { Event_ID: <OLD_EVENT_ID> }\n  4) \"Add data (append)\" with fields: { Event_ID: <NEW_EVENT_ID>, Patient_Name, Phone_Number, Date_and_Time, Appointment_Status }\n- Never reference $node[...] inside Sheets; always pass values as tool arguments.\n\n\n🗑️ CANCELLATION (AUTOMATED & RELIABLE)\n- Always do these steps in order:\n  2) Call \"Delete an event in Google Calendar\" (uses $fromAI('Event_ID')).\n  3) Call \"Mark row Cancelled\" (uses $fromAI('Event_ID')).\n- Never skip step 1; both tools read Event_ID from AI variables.\n\n\n🔒 TOOL ARGUMENTS POLICY (No shared state)\n- Always pass explicit arguments to every tool call.\n- Sheets nodes read values from the tool input as $json.<Field>.\n- Required fields:\n  • For Add data (append): Patient_Name, Phone_Number, Date_and_Time, Appointment_Status, Event_ID\n  • For Mark row Rescheduled / Cancelled: Event_ID\n  • For Delete an event in Google Calendar: Event_ID\n\n🗑️ CANCEL (100% AUTO)\n1) Call \"Delete an event in Google Calendar\" with { Event_ID }.\n2) Call \"Mark row Cancelled\" with { Event_ID }.\n\n♻️ RESCHEDULE (HISTORY-PRESERVING)\n1) Call \"Creat event\" → read returned id and then call \"Add data (append)\" with { Patient_Name, Phone_Number, Date_and_Time, Appointment_Status: \"Confirmed\", Event_ID: <new id> }.\n2) Call \"Delete an event in Google Calendar\" with { Event_ID: <old id> }.\n3) Call \"Mark row Rescheduled\" with { Event_ID: <old id> }.\n"
+          "systemMessage": "=🎯 Role of the Assistant\nYou are a virtual assistant specializing in appointment management for Dr. Super Sriram. Your goal is to schedule consultations accurately, ensuring real availability while providing a smooth experience for patients.\n\n🕒 Office Hours\nMonday - Friday: 9:00 AM - 8:00 PM\nSaturday: 9:00 AM - 1:00 PM\nTime zone: Asia/Kolkata (+05:30)\nSunday: ❌ Closed\nConsultation Duration: 1 hour\nBreak Between Patients: 15 minutes\n\n📅 Booking Process\n\n1️⃣ Request Patient Information (Mandatory):\nFull Name\nPhone Number\nDesired Date and Time\n2️⃣ Availability Check:\nIf the requested time is outside office hours → offer only available slots.\nIf the requested time is in the past provide them a warning.\nIf the requested time is available, ask for confirmation and book it.\nIf the requested time is unavailable, apologize and suggest the actual available slots on the requested day (between 9:00 AM and 8:00 PM, respecting breaks).\n\n##Example:\nIf a patient requests an appointment at 10:00 AM, check Google Calendar to confirm availability between 9:00 AM and 8:00 PM, considering the consultation duration (1 hour) and the 15-minute breaks.\nThe appointment is the past. Do you really wanted to proceed with?\n🚨 Do not confirm the appointment immediately—you must receive the patient's confirmation first.\n\n3️⃣ Confirmation & Updates:\nAlways confirm availability with the patient before finalizing.\nUpdate Google Calendar & Google Sheets after every booking along with the Event_ID field.\nUse the Event_ID field to remove from the Calendar in case of Cancellation and Reschedule.\nGoogle Calendar Event Title: \"Patient Name - Phone Number\".\nFor modifications or cancellations, free the slot and update the schedule.\n\n##Tools:\nUse \"Check Availability\" to check available slots.\nUse \"Creat event\" to book the appointment.\nUse \"Add data (append)\" to record patient information on new bookings.\nUse \"Add data\" to update an existing row by Event_ID.\nUse \"Mark row Rescheduled\" to mark the row when rescheduling.\nUse \"Mark row Cancelled\" to mark the row on cancellations.\nUse \"Delete an event in Google Calendar\" to delete a calendar event by Event_ID.\n\n💬 Communication\n✅ Respond to the user with a friendly message, but also return the appointment details as a JSON object with keys: name, phoneNumber, dateTime, id etc.\noutput: \"I have successfully scheduled your appointment! ...\"\n## Example\nI have successfully scheduled your appointment for Suresh at 10:00 AM today. \nHere are the updated details:\n- Name: Suresh\n- Phone Number: Not provided\n- Date & Time: 2025-11-09 at 10:00 AM\n- Status: Confirmed\n- Id: 1sl15btj3q7rsqq0l0bhembbqs\n- Calendar Link: [View Appointment](https://www.google.com/calendar/event?eid=1sl15btj3q7rsqq0l0bhembbqs)\nFeel free to click on the link to view the appointment details in the calendar. If you have any more questions or need assistance, just let me know!\n\n✅ Always confirm the final date and time with the patient.\n✅ When you Cancel an appointment also delete it from the Calendar\n✅ When you reschedule mark the old one as Rescheduled in the sheet and Delete it from the Calendar\n✅ After reschedule add the new one in the Calendar and the Sheet and mark it as Confirmed just like adding an new one\n✅ Make sure to update the ID field in the Google Sheet too\n✅ Ensure Google Calendar and Google Sheets are updated after every booking.\t\n\n⏱️ Time Handling (STRICT)\n📅 Today's date: {{ $now }}.\n- You MUST NOT guess or estimate the current time.\n- Always treat {{ $now }} as the current date and time in Asia/Kolkata (UTC+05:30).\n- Convert the user's requested time to a full ISO datetime in Asia/Kolkata with date included.\n- Only consider a requested time \"in the past\" if:\n      requested_start < ( {{ $now }} - 5 minutes )\n- If requested_start is after {{ $now }}, it is in the future. Do NOT mark it as past.\nExample:\nIf {{ $now }} = 2025-11-09T08:39:00+05:30 and user requests \"today at 10:00 AM\",\nthen requested_start = 2025-11-09T10:00:00+05:30 → this is in the future → DO NOT say it's in the past.\n\n🗑️ Cancellation:\n- When a patient cancels an appointment:\n  1) Call **\"Delete an event in Google Calendar\"** with the `Event_ID` to remove it from Calendar.\n  2) Call **\"Mark row Cancelled\"** (Sheets) to set `Appointment_Status = Cancelled` on the matching row (`Event_ID`).\n- Do not delete the row in the Sheet for cancellations; only mark as Cancelled.\n  Event_ID = the same Event_ID the user wants to cancel.\n- Then call \"Delete an event in Google Calendar\".\n- Then call \"Mark row Cancelled\".\n- After deletion, inform the user that the slot is now free.\n\nReschedule:\n- When a patient reschedules an appointment:\n  1) Call **\"Delete an event in Google Calendar\"** with the `Event_ID` to remove it from Calendar.\n  2) Call **\"Mark row Rescheduled\"** in Google Sheets to set `Appointment_Status = Rescheduled` on the matching row (`Event_ID`).\n     Do not delete the old row in the Sheet for reschedule; only mark as Rescheduled.\n  3) After that don't forget create a new booking with the new Event_Id for the rescheduled date and time (Including entries in both google sheet and the Calendar)\n  4) For reschedule no need to change the name and phone number\n\nAvailability Check:\nBefore new Booking or Rescheduling \n1) Always check for the Availability First \n2) If availability is there then first get the confirmation\n3) If not available handle it with a message \n4) If available or suggesting a new time, confirmation is mandatory before booking\n4) Don't say messages like \" Let me check for available slots around that time. One moment, please.\" if you need to check just check  \n\n🆕 New Booking\n1) Call Creat event with the chosen start/end.\n2) Read id as NEW_ID\n3) If id is blank wait until id is populated. Wait and try for 3 or 4 times if needed. \n4) HTML link as LINK.\n5) Call \"Add data (append)\" with { Patient_Name, Phone_Number, Date_and_Time, Appointment_Status: \"Confirmed\", Event_ID: NEW_ID }.\n6) Reply to the user and set your final JSON output to:\n\n{\n  \"name\": \"<Patient_Name>\",\n  \"phoneNumber\": \"<Phone_Number>\",\n  \"dateTime\": \"<ISO datetime or human text>\",\n  \"status\": \"Confirmed\",\n  \"id\": \"<NEW_ID>\",\n  \"calendarLink\": \"<LINK>\"\n}"
         }
       },
-      "id": "7efd0c3d-549a-4032-85a8-c2c8ca362d77",
+      "id": "64bb268a-62dc-4972-952c-1d62569ba330",
       "name": "AI Agent",
       "type": "@n8n/n8n-nodes-langchain.agent",
       "position": [
-        208,
-        -384
+        -480,
+        304
       ],
-      "typeVersion": 1.7
+      "typeVersion": 1.7,
+      "retryOnFail": true
     },
     {
       "parameters": {
@@ -27,12 +28,12 @@
         },
         "options": {}
       },
-      "id": "b5632970-9c4c-4130-bf25-025e1212a56a",
+      "id": "b1180fef-0fc7-48c1-8d21-0f9124db2741",
       "name": "OpenAI Chat Model",
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "position": [
-        144,
-        -160
+        -544,
+        528
       ],
       "typeVersion": 1.2,
       "credentials": {
@@ -48,12 +49,12 @@
         "sessionKey": "={{ $('Telegram Trigger').item.json.message.chat.id }}\n",
         "contextWindowLength": "={{ 5 }}"
       },
-      "id": "ab925a5e-e37e-4bf8-a1dd-e50da82733e4",
+      "id": "4ed34dea-e42b-4682-b5d0-8e31eefc3b9b",
       "name": "Window Buffer Memory",
       "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
       "position": [
-        288,
-        -160
+        -400,
+        528
       ],
       "typeVersion": 1.3
     },
@@ -64,12 +65,12 @@
         "width": 194,
         "color": 7
       },
-      "id": "1eb3f094-c2a0-4269-b528-8532c6df5b52",
+      "id": "c1ce12a6-0428-4452-abb8-163b08771890",
       "name": "Sticky Note2",
       "type": "n8n-nodes-base.stickyNote",
       "position": [
-        240,
-        -576
+        -448,
+        96
       ],
       "typeVersion": 1
     },
@@ -80,12 +81,12 @@
         "width": 150,
         "color": 7
       },
-      "id": "e6f6c15c-1131-4a7f-b7d9-37799220e704",
+      "id": "9be08356-651a-4611-9beb-9ed47323f326",
       "name": "Sticky Note",
       "type": "n8n-nodes-base.stickyNote",
       "position": [
-        96,
-        16
+        -592,
+        704
       ],
       "typeVersion": 1
     },
@@ -96,12 +97,12 @@
         "width": 150,
         "color": 7
       },
-      "id": "ad4211c8-d546-497f-b7df-bd7035040f78",
+      "id": "d2754971-0565-4140-90c7-a84d80debce5",
       "name": "Sticky Note4",
       "type": "n8n-nodes-base.stickyNote",
       "position": [
-        256,
-        16
+        -432,
+        704
       ],
       "typeVersion": 1
     },
@@ -118,12 +119,12 @@
         "timeMax": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('End_Time', ``, 'string') }}",
         "options": {}
       },
-      "id": "bbd8516c-0da8-4bee-a8c6-486e8b0597c0",
+      "id": "c07326b6-bb1d-411f-bc76-703bd2002af8",
       "name": "Check Availability",
       "type": "n8n-nodes-base.googleCalendarTool",
       "position": [
-        672,
-        -64
+        320,
+        624
       ],
       "typeVersion": 1.3,
       "credentials": {
@@ -148,12 +149,12 @@
           "summary": "Appointment with Dr. Super Sriram"
         }
       },
-      "id": "6ff1d827-dae1-413a-83fb-26e776838bf3",
+      "id": "a4fdfaa5-3641-42b0-b129-fdb240785ae0",
       "name": "Creat event",
       "type": "n8n-nodes-base.googleCalendarTool",
       "position": [
-        896,
-        -64
+        432,
+        608
       ],
       "typeVersion": 1.3,
       "credentials": {
@@ -168,10 +169,10 @@
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        -352,
-        -224
+        -1040,
+        464
       ],
-      "id": "c45125b8-6429-42c7-8e30-484c89f80630",
+      "id": "436d5411-718e-4e53-9ba8-72c48495f895",
       "name": "Sticky Note5"
     },
     {
@@ -184,10 +185,10 @@
       "type": "n8n-nodes-base.telegramTrigger",
       "typeVersion": 1.2,
       "position": [
-        -240,
-        -400
+        -928,
+        288
       ],
-      "id": "104166f8-9142-46d9-a74a-45eb9126d5fd",
+      "id": "7150413e-fb11-46ca-9fb8-0a58f9d9459e",
       "name": "Telegram Trigger",
       "webhookId": "e6578cc9-4b12-465c-863e-20fe42f455d9",
       "credentials": {
@@ -206,12 +207,13 @@
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        768,
-        -384
+        96,
+        304
       ],
-      "id": "98c30e4b-85e3-4f50-b961-7cd82186d9eb",
+      "id": "4b579a22-ae23-4178-abdb-0b130dde9675",
       "name": "Send a text message",
       "webhookId": "a5e26b27-59b8-4486-b135-bdb734468b07",
+      "retryOnFail": true,
       "credentials": {
         "telegramApi": {
           "id": "uKOIF2nwNQxltVPM",
@@ -231,7 +233,7 @@
         },
         "sheetName": {
           "__rl": true,
-          "value": "Sheet1",
+          "value": "gid=0",
           "mode": "list",
           "cachedResultName": "Sheet1",
           "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1PYAr5aGLJ82aMfdc-FjP6ZraHqbuMOwL1Z62b4eCasE/edit#gid=0"
@@ -239,11 +241,12 @@
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
-            "Patient_Name": "={{ $json.Patient_Name }}",
-            "Date_and_Time": "={{ $json.Date_and_Time }}",
-            "Phone_Number": "={{ $json.Phone_Number }}",
-            "Appointment_Status": "={{ $json.Appointment_Status }}",
-            "Event_ID": "={{ $json.Event_ID }}"
+            "Patient_Name": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Patient_Name', ``, 'string') }}",
+            "Date_and_Time": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Date_and_Time', ``, 'string') }}",
+            "Phone_Number": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Phone_Number', ``, 'string') }}",
+            "Appointment_Status": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Appointment_Status', ``, 'string') }}",
+            "Event_ID": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Event_ID__using_to_match_', ``, 'string') }}",
+            "row_number": 0
           },
           "matchingColumns": [
             "Event_ID"
@@ -298,6 +301,17 @@
               "type": "string",
               "canBeUsedToMatch": true,
               "removed": false
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": false
             }
           ],
           "attemptToConvertTypes": false,
@@ -305,12 +319,12 @@
         },
         "options": {}
       },
-      "id": "b873b0d2-9845-44d3-b649-f9c9afecd7f8",
+      "id": "27da22d6-7f72-49f7-92c2-1100872d9197",
       "name": "Add data",
       "type": "n8n-nodes-base.googleSheetsTool",
       "position": [
-        1712,
-        -288
+        1040,
+        400
       ],
       "typeVersion": 4.5,
       "credentials": {
@@ -335,10 +349,10 @@
       "type": "n8n-nodes-base.googleCalendarTool",
       "typeVersion": 1.3,
       "position": [
-        496,
-        -64
+        160,
+        624
       ],
-      "id": "bf83b5e8-53b5-44e8-8241-e4af9996ac27",
+      "id": "c250cda8-36f0-4c1e-8d4d-dfb9f3ad7abb",
       "name": "Delete an event in Google Calendar",
       "credentials": {
         "googleCalendarOAuth2Api": {
@@ -418,7 +432,8 @@
               "defaultMatch": false,
               "display": true,
               "type": "string",
-              "canBeUsedToMatch": true
+              "canBeUsedToMatch": true,
+              "removed": false
             }
           ],
           "attemptToConvertTypes": false,
@@ -426,12 +441,12 @@
         },
         "options": {}
       },
-      "id": "ffb7ef6a-b00a-47f5-9fc4-ce4030e07052",
+      "id": "0d9670f3-9863-488a-b41e-3d1e4801c106",
       "name": "Add data (append)",
       "type": "n8n-nodes-base.googleSheetsTool",
       "position": [
-        1360,
-        -128
+        688,
+        560
       ],
       "typeVersion": 4.5,
       "credentials": {
@@ -459,75 +474,13 @@
           "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1PYAr5aGLJ82aMfdc-FjP6ZraHqbuMOwL1Z62b4eCasE/edit#gid=0"
         }
       },
-      "id": "70ceba68-4d10-4b40-b1ca-0fc47001ed1a",
+      "id": "85b4d58a-4f31-4003-aadc-df5b167c9f94",
       "name": "Delete row",
       "type": "n8n-nodes-base.googleSheetsTool",
       "typeVersion": 4.5,
       "position": [
-        1856,
-        96
-      ],
-      "credentials": {
-        "googleSheetsOAuth2Api": {
-          "id": "iJLNoDxFepEWUkdn",
-          "name": "Google Sheets account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "operation": "update",
-        "documentId": {
-          "__rl": true,
-          "value": "1PYAr5aGLJ82aMfdc-FjP6ZraHqbuMOwL1Z62b4eCasE",
-          "mode": "list",
-          "cachedResultName": "MyAppointmentSheet",
-          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1PYAr5aGLJ82aMfdc-FjP6ZraHqbuMOwL1Z62b4eCasE/edit?usp=drivesdk"
-        },
-        "sheetName": {
-          "__rl": true,
-          "value": "gid=0",
-          "mode": "list",
-          "cachedResultName": "Sheet1",
-          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1PYAr5aGLJ82aMfdc-FjP6ZraHqbuMOwL1Z62b4eCasE/edit#gid=0"
-        },
-        "columns": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "Event_ID": "={{ $json.Event_ID }}",
-            "Appointment_Status": "={{ $json.Appointment_Status }}"
-          },
-          "matchingColumns": [
-            "Event_ID"
-          ],
-          "schema": [
-            {
-              "id": "Event_ID",
-              "displayName": "Event_ID",
-              "type": "string",
-              "display": true,
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "Appointment_Status",
-              "displayName": "Appointment_Status",
-              "type": "string",
-              "display": true,
-              "canBeUsedToMatch": false
-            }
-          ],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": false
-        },
-        "options": {}
-      },
-      "id": "27d93220-dc06-46f8-b267-c99eca591a1e",
-      "name": "Mark row Rescheduled",
-      "type": "n8n-nodes-base.googleSheetsTool",
-      "typeVersion": 4.5,
-      "position": [
-        1456,
-        -176
+        1184,
+        784
       ],
       "credentials": {
         "googleSheetsOAuth2Api": {
@@ -557,9 +510,6 @@
           "mappingMode": "defineBelow",
           "value": {
             "Event_ID": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Event_ID__using_to_match_', ``, 'string') }}",
-            "Patient_Name": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Patient_Name', ``, 'string') }}",
-            "Date_and_Time": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Date_and_Time', ``, 'string') }}",
-            "Phone_Number": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Phone_Number', ``, 'string') }}",
             "Appointment_Status": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Appointment_Status', ``, 'string') }}"
           },
           "matchingColumns": [
@@ -573,7 +523,8 @@
               "defaultMatch": false,
               "display": true,
               "type": "string",
-              "canBeUsedToMatch": true
+              "canBeUsedToMatch": true,
+              "removed": true
             },
             {
               "id": "Date_and_Time",
@@ -582,7 +533,8 @@
               "defaultMatch": false,
               "display": true,
               "type": "string",
-              "canBeUsedToMatch": true
+              "canBeUsedToMatch": true,
+              "removed": true
             },
             {
               "id": "Phone_Number",
@@ -591,7 +543,8 @@
               "defaultMatch": false,
               "display": true,
               "type": "string",
-              "canBeUsedToMatch": true
+              "canBeUsedToMatch": true,
+              "removed": true
             },
             {
               "id": "Appointment_Status",
@@ -600,7 +553,116 @@
               "defaultMatch": false,
               "display": true,
               "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Event_ID",
+              "displayName": "Event_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
               "canBeUsedToMatch": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "ca63fb0a-4a9a-4c2f-b90b-e865cf3bec84",
+      "name": "Mark row Rescheduled",
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.5,
+      "position": [
+        784,
+        512
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "iJLNoDxFepEWUkdn",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1PYAr5aGLJ82aMfdc-FjP6ZraHqbuMOwL1Z62b4eCasE",
+          "mode": "list",
+          "cachedResultName": "MyAppointmentSheet",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1PYAr5aGLJ82aMfdc-FjP6ZraHqbuMOwL1Z62b4eCasE/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1PYAr5aGLJ82aMfdc-FjP6ZraHqbuMOwL1Z62b4eCasE/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Event_ID": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Event_ID__using_to_match_', ``, 'string') }}",
+            "Appointment_Status": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Appointment_Status', ``, 'string') }}"
+          },
+          "matchingColumns": [
+            "Event_ID"
+          ],
+          "schema": [
+            {
+              "id": "Patient_Name",
+              "displayName": "Patient_Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Date_and_Time",
+              "displayName": "Date_and_Time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Phone_Number",
+              "displayName": "Phone_Number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Appointment_Status",
+              "displayName": "Appointment_Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
             },
             {
               "id": "Event_ID",
@@ -629,13 +691,13 @@
         },
         "options": {}
       },
-      "id": "de547422-f707-454b-81a3-7a88225d21f0",
+      "id": "f19ccf3b-9908-45c0-a671-8241283b65f9",
       "name": "Mark row Cancelled",
       "type": "n8n-nodes-base.googleSheetsTool",
       "typeVersion": 4.5,
       "position": [
-        1584,
-        -224
+        912,
+        464
       ],
       "credentials": {
         "googleSheetsOAuth2Api": {
@@ -776,7 +838,7 @@
     "executionOrder": "v0",
     "errorWorkflow": "UD2tM2R4s0VHzAyJ"
   },
-  "versionId": "b5740182-5e8a-42f7-8c10-b0ce08c96ef8",
+  "versionId": "ad8096ad-7663-4c06-a178-402f39181d02",
   "meta": {
     "templateId": "3131",
     "templateCredsSetupCompleted": true,
