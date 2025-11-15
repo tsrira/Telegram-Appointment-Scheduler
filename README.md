@@ -3,6 +3,7 @@
 This repository contains an automated appointment scheduling system that allows patients to **book, reschedule, and cancel appointments directly through Telegram**, while keeping **Google Calendar** and **Google Sheets** synchronized in real-time.
 
 **Live Bot:**[Appointment Bot](https://web.telegram.org/k/#@sriram_appoint_bot)
+
 **Demo:** [Demo video](https://youtu.be/4ogLql9a3Zk)
 
 ---
